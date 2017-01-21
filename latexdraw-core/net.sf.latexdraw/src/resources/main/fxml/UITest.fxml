@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" prefHeight="800.0" prefWidth="1200.0" xmlns="http://javafx.com/javafx/8"
+            fx:controller="net.sf.latexdraw.instruments.FrameController">
+    <center>
+        <TabPane tabClosingPolicy="UNAVAILABLE">
+            <Tab closable="false" text="%UIBuilder.1">
+                <SplitPane dividerPositions="0.85">
+                    <ScrollPane fx:id="scrollPane" >
+                        <fx:include fx:id="canvas" source="Canvas.fxml"/>
+                    </ScrollPane>
+                </SplitPane>
+            </Tab>
+        </TabPane>
+    </center>
+    <top>
+        <ToolBar prefHeight="40.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+            <fx:include source="Undo.fxml"/>
+        </ToolBar>
+    </top>
+</BorderPane>
