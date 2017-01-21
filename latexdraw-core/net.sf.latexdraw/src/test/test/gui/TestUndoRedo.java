@@ -93,16 +93,7 @@ public class TestUndoRedo extends TestLatexdrawGUI {
 	public class Robot extends FxRobot implements FxRobotDnD {
 	}
 	
-	private void assertSnapshotsEqual(final String referenceSnapshot, final Node nodeUnderTest, final double tolerance) throws IOException, URISyntaxException {
-		final WritableImage observedImage = new WritableImage((int) nodeUnderTest.getScene().getWidth(), (int) nodeUnderTest.getScene().getHeight());
-
-		Platform.runLater(() -> nodeUnderTest.snapshot(new SnapshotParameters(), observedImage));
-		WaitForAsyncUtils.waitForFxEvents();
-
-		final Image oracleImage = new Image(new File(referenceSnapshot).toURI().toURL().toExternalForm());
-
-		assertEquals("The two snapshots differ", 100d, computeSnapshotSimilarity(observedImage, oracleImage), tolerance);
-	}
+	//cf : http://torgen-engineering.blogspot.fr/2015/12/gui-testing-how-to-compare-javafx-gui.html
 	private double computeSnapshotSimilarity(final Image image1, final Image image2) {
 		final int width = (int) image1.getWidth();
 		final int height = (int) image1.getHeight();
