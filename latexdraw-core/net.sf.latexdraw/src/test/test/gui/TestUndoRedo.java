@@ -8,6 +8,8 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.image.*;
+import javafx.embed.swing.SwingFXUtils;
+import net.sf.latexdraw.LaTeXDraw;
 import net.sf.latexdraw.instruments.EditionChoice;
 import net.sf.latexdraw.instruments.Hand;
 import net.sf.latexdraw.instruments.Pencil;
@@ -34,10 +36,14 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.awt.image.RenderedImage;
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.util.stream.IntStream;
+
+import javax.imageio.ImageIO;
 
 import javafx.scene.Node;
 
@@ -46,11 +52,45 @@ public class TestUndoRedo extends TestLatexdrawGUI {
 	Hand hand;
 	Canvas canvas;
 	IRectangle addedRec;
+	Image image2Rec;
 
+	public class Robot extends FxRobot implements FxRobotDnD {
+	}
+	
+	//cf : http://torgen-engineering.blogspot.fr/2015/12/gui-testing-how-to-compare-javafx-gui.html
+	private double computeSnapshotSimilarity(final Image image1) {
+		String file = LaTeXDraw.class.getResource("/snapshot/testUndoredo.png").getFile();
+		try {
+			Image  image2 = new Image(new File(file).toURI().toURL().toExternalForm());
+			final int width = (int) image1.getWidth();
+			final int height = (int) image1.getHeight();
+			final PixelReader reader1 = image1.getPixelReader();
+			final PixelReader reader2 = image2.getPixelReader();
+
+			final double nbNonSimilarPixels = IntStream.range(0, width).parallel().
+				mapToLong(i -> IntStream.range(0, height).parallel().filter(j -> reader1.getArgb(i, j) != reader2.getArgb(i, j)).count()).sum();
+
+			return 100d - nbNonSimilarPixels / (width * height) * 100d;
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+		}
+		return 0.0;
+	}
+	
+	private WritableImage createSnapshot(){
+		WritableImage image = new WritableImage((int)canvas.getWidth(),(int)canvas.getHeight());
+		Platform.runLater(() -> canvas.snapshot(new SnapshotParameters(), image));
+		WaitForAsyncUtils.waitForFxEvents();
+		return image;
+	}
+
+	Group getPane() {
+		return (Group)canvas.getChildren().get(1);
+	}
 	
 	@Override
 	public String getFXMLPathFromLatexdraw() {
-		return "/fxml/UITest.fxml";
+		return "/fxml/TestUndoRedo.fxml";
 	}
 
 	@Override
@@ -73,8 +113,6 @@ public class TestUndoRedo extends TestLatexdrawGUI {
 	@Before
 	public void setUp() {
 		super.setUp();
-		IGroup groupParams = ShapeFactory.INST.createGroup();
-		groupParams.addShape(ShapeFactory.INST.createRectangle());
 		pencil = (Pencil)guiceFactory.call(Pencil.class);
 		hand = (Hand)guiceFactory.call(Hand.class);
 
@@ -83,72 +121,89 @@ public class TestUndoRedo extends TestLatexdrawGUI {
 		//when(pencil.isActivated()).thenReturn(true);
 		pencil.setCurrentChoice(EditionChoice.RECT);
 		//when(pencil.getCurrentChoice()).thenReturn(EditionChoice.RECT);
-		//when(pencil.getGroupParams()).thenReturn(groupParams);
-
-		//canvas = find("#canvas");
+		
 		canvas = lookup("#canvas").query();
-	}
-
-	
-	public class Robot extends FxRobot implements FxRobotDnD {
-	}
-	
-	//cf : http://torgen-engineering.blogspot.fr/2015/12/gui-testing-how-to-compare-javafx-gui.html
-	private double computeSnapshotSimilarity(final Image image1, final Image image2) {
-		final int width = (int) image1.getWidth();
-		final int height = (int) image1.getHeight();
-		final PixelReader reader1 = image1.getPixelReader();
-		final PixelReader reader2 = image2.getPixelReader();
-
-		final double nbNonSimilarPixels = IntStream.range(0, width).parallel().
-			mapToLong(i -> IntStream.range(0, height).parallel().filter(j -> reader1.getArgb(i, j) != reader2.getArgb(i, j)).count()).sum();
-
-		return 100d - nbNonSimilarPixels / (width * height) * 100d;
-	}
-	
-	
-	@Test
-	public void test() {
+		
 		
 		FxRobotDnD robot = new Robot();
 		
 		Point2D ori = point("#canvas").query();
 		Point2D dest = point("#canvas").atOffset(100,100).query();
-		//clickOn("#recB");
 		MouseButton button = MouseButton.PRIMARY;
 		robot.dndFromPos(ori, dest, button);
 
 		ori = point("#canvas").atOffset(-100,-100).query();
 		dest = point("#canvas").atOffset(-150,100).query();
 		robot.dndFromPos(ori, dest, button);
-		//SnapshotParameters params = new SnapshotParameters();
-		WritableImage image2Rec = new WritableImage((int)canvas.getWidth(),(int)canvas.getHeight());
-		//image2Rec = canvas.snapshot(null, image2Rec);
-		Platform.runLater(() -> canvas.snapshot(new SnapshotParameters(), image2Rec));
-		WaitForAsyncUtils.waitForFxEvents();
-		assertNotNull(image2Rec);
+		/*image2Rec = createSnapshot();
+
+	    try {
+			ImageIO.write(SwingFXUtils.fromFXImage(image2Rec, null), "png", new File("src/resources/test/snapshot/testUndoredo.png"));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}*/
 		
 		ori = point("#canvas").atOffset(100,-100).query();
 		dest = point("#canvas").atOffset(150,150).query();
 		robot.dndFromPos(ori, dest, button);
-		//sleep(500);
-		
+	}
+
+	
+	@Test
+	public void DemoGuiTesting() {
 		clickOn("#undoB");
-		WritableImage undoImage = new WritableImage((int)canvas.getWidth(),(int)canvas.getHeight());
-		Platform.runLater(() -> canvas.snapshot(new SnapshotParameters(), undoImage));
-		WaitForAsyncUtils.waitForFxEvents();
-		assertEquals("The result of the Undo differ", 100d, computeSnapshotSimilarity(undoImage, image2Rec), 0.0);
+		WritableImage undoImage = createSnapshot();
+		assertEquals("The result of the Undo differ", 100d, computeSnapshotSimilarity(undoImage), 0.0);
 
 		
 		clickOn("#undoB");
-		//sleep(100);
 		
 		
 		clickOn("#redoB");
-		WritableImage redoImage = new WritableImage((int)canvas.getWidth(),(int)canvas.getHeight());
-		Platform.runLater(() -> canvas.snapshot(new SnapshotParameters(), redoImage));
-		WaitForAsyncUtils.waitForFxEvents();
-		assertEquals("The result of the Redo differ", 100d, computeSnapshotSimilarity(redoImage, image2Rec), 0.0);
+		WritableImage redoImage = createSnapshot();
+		assertEquals("The result of the Redo differ", 100d, computeSnapshotSimilarity(redoImage), 0.0);
+		
+	}
+
+	@Test
+	public void testUndoModel(){
+		Group group = getPane();
+		int prev = group.getChildren().size();
+		clickOn("#undoB");
+		int now = group.getChildren().size();
+		assertEquals(prev-1, now);
+	}
+	@Test
+	public void testRedoModel(){
+		Group group = getPane();
+		int beforeUndo = group.getChildren().size();
+		
+		clickOn("#undoB");
+		int afterUndo = group.getChildren().size();
+		
+		clickOn("#redoB");
+		int now = group.getChildren().size();
+		assertEquals(beforeUndo, now);
+		assertEquals(afterUndo+1, now);
+		assertTrue(group.getChildren().get(now-1) instanceof ViewRectangle);
+		
+	}
+
+	@Test
+	public void testUndoSnapshot(){
+		clickOn("#undoB");
+		WritableImage undoImage = createSnapshot();
+		assertEquals("The result of the Undo differ", 100d, computeSnapshotSimilarity(undoImage), 0.0);
+	}
+	@Test
+	public void testRedoSnapshot(){
+		clickOn("#undoB");
+		clickOn("#undoB");
+		
+		
+		clickOn("#redoB");
+		WritableImage redoImage = createSnapshot();
+		assertEquals("The result of the Redo differ", 100d, computeSnapshotSimilarity(redoImage), 0.0);
 		
 	}
 }
